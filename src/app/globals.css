@@ -1,0 +1,271 @@
+@import "bootstrap/dist/css/bootstrap.min.css";
+
+/* =========================================
+   MODO CLARO (As suas cores originais)
+   ========================================= */
+:root,
+[data-bs-theme="light"] {
+  --bs-primary: #e05d5d;
+  --bs-primary-rgb: 224, 93, 93;
+
+  --mal-brand-color: #f43f5e;
+  --mal-brand-hover: #e11d48;
+
+  --bs-body-bg: #f4f6f8;
+  --bs-body-color: #2d3748;
+
+  --bs-card-bg: #fff;
+  --bs-card-border-color: rgba(0, 0, 0, 0.04);
+  --bs-card-border-radius: 12px;
+
+  --custom-title-color: #1a202c;
+  --custom-muted-color: #4a5568; /* Um tom ligeiramente mais suave para o muted */
+}
+
+/* =========================================
+   MODO ESCURO (A inversão inteligente)
+   ========================================= */
+[data-bs-theme="dark"] {
+  /* O primário (vermelho) mantém-se igual! */
+
+  --bs-body-bg: #1a202c; /* Fundo geral escuro */
+  --bs-body-color: #f4f6f8; /* Texto geral claro */
+
+  --bs-card-bg: #2d3748; /* Cartões com tom escuro elegante */
+  --bs-card-border-color: rgba(255, 255, 255, 0.05);
+
+  --custom-title-color: #ffffff;
+  --custom-muted-color: #a0aec0;
+}
+
+/* =========================================
+   ESTILOS GLOBAIS
+   ========================================= */
+body {
+  font-family:
+    var(--font-inter),
+    system-ui,
+    -apple-system,
+    sans-serif !important;
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease; /* Transição suave de temas */
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.card-title {
+  font-family:
+    var(--font-poppins),
+    system-ui,
+    -apple-system,
+    sans-serif !important;
+  color: var(--custom-title-color); /* Usa a variável que muda com o tema */
+  font-weight: 700;
+  transition: color 0.3s ease;
+}
+
+.text-muted {
+  color: var(--custom-muted-color) !important;
+}
+
+.text-primary {
+  color: var(--mal-brand-color) !important;
+}
+
+.btn-primary {
+  background-color: var(--mal-brand-color) !important;
+  border-color: var(--mal-brand-color) !important;
+  color: #fff !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  background-color: var(--mal-brand-hover) !important;
+  border-color: var(--mal-brand-hover) !important;
+}
+
+.btn-outline-primary {
+  color: var(--mal-brand-color) !important;
+  border-color: var(--mal-brand-color) !important;
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--mal-brand-color) !important;
+  color: #ffffff !important;
+}
+
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Muda a cor de fundo e borda quando o switch/checkbox está ATIVO */
+.form-check-input:checked {
+  background-color: var(--mal-brand-color) !important;
+  border-color: var(--mal-brand-color) !important;
+  color: #fff;
+}
+
+/* Remove aquele aro azul brilhante padrão quando o elemento ganha foco (ao clicar) */
+.form-check-input:focus {
+  border-color: var(--mal-brand-hover) !important;
+  /* Cria um brilho suave usando a cor vermelha/salmão (em RGBA) */
+  box-shadow: 0 0 0 0.25rem rgba(244, 63, 94, 0.25) !important;
+  color: #fff;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--mal-brand-hover) !important;
+  /* O box-shadow cria a aura ao redor do input. Usamos o RGB do seu salmão (244, 63, 94) com 25% de opacidade */
+  box-shadow: 0 0 0 0.25rem rgba(244, 63, 94, 0.25) !important;
+}
+
+input {
+  box-shadow: var(--mal-brand-hover) !important;
+}
+
+/* =========================================
+   NAVBAR ESTILO VIDRO FOSCO (GLASSMORPHISM)
+   ========================================= */
+.glass-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030;
+  transition:
+    background-color 0.3s ease,
+    backdrop-filter 0.3s ease,
+    border-color 0.3s ease;
+}
+
+/* Ajuste fino para o Modo Claro */
+[data-bs-theme="light"] .glass-navbar {
+  background-color: rgba(
+    244,
+    246,
+    248,
+    0.75
+  ); /* var(--bs-body-bg) com opacidade */
+  backdrop-filter: blur(
+    12px
+  ); /* Faz o degradê do anime desfocar ainda mais ao passar por trás */
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Ajuste fino para o Modo Escuro */
+[data-bs-theme="dark"] .glass-navbar {
+  background-color: rgba(
+    26,
+    32,
+    44,
+    0.75
+  ); /* var(--bs-body-bg) com opacidade */
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* COMPENSAÇÃO DE ESPAÇO NAS PÁGINAS 
+   Como a navbar agora é 'fixed', precisamos de empurrar o miolo das páginas para baixo */
+.main-content {
+  padding-top: 76px; /* Altura exata da navbar + respiro */
+}
+
+.anime-card {
+  background-color: var(--bs-card-bg);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.3s ease;
+  height: 100%;
+  border: 1px solid var(--bs-card-border-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+  border-radius: var(--bs-card-border-radius);
+  position: relative;
+}
+
+.anime-card:hover {
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+}
+
+.card-img-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.03);
+  width: 100%;
+  aspect-ratio: 3/4;
+  overflow: hidden;
+  border-bottom: 1px solid var(--bs-card-border-color);
+  overflow: hidden;
+  border-top-left-radius: calc(0.375rem - 1px);
+  border-top-right-radius: calc(0.375rem - 1px);
+}
+
+.anime-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ANIMAÇÃO PARA ÍCONES DE CARREGAMENTO */
+.icon-spin {
+  animation: icon-spin 1.5s linear infinite;
+}
+
+@keyframes icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mal-tooltip {
+  position: absolute;
+  top: -20px;
+  right: 100%;
+  margin-right: 14px;
+
+  padding: 14px;
+  border-radius: 6px;
+  width: 260px;
+  z-index: 100;
+  box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  text-align: left;
+
+  text-transform: none !important;
+}
+
+.mal-tooltip::before {
+  content: "";
+  position: absolute;
+  top: 24px;
+  right: -14px;
+  border-width: 7px;
+  border-style: solid;
+  border-color: transparent transparent transparent #4a4a4a;
+}
+
+.mal-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 25px;
+  right: -12px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent transparent #1e1e24;
+}
