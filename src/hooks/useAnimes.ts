@@ -8,6 +8,12 @@ import {
 } from "@tanstack/react-query";
 import { Anime } from "@/types/anime";
 import { useDebounce } from "use-debounce";
+import {
+  getAnimesAction,
+  saveAnimeAction,
+  toggleFavoriteAction,
+  updateAnimeEpisodesAction,
+} from "@/actions/animeActions";
 
 interface AnimePageResponse {
   content: Anime[];
@@ -38,41 +44,15 @@ export function useAnimes() {
   ];
 
   const fetchAnimes = async ({ pageParam = 0 }) => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-      throw new Error("Sem token");
-    }
-
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-    let url = `${apiUrl}/api/animes?page=${pageParam}&size=20`;
-
-    if (debouncedSearchQuery)
-      url += `&search=${encodeURIComponent(debouncedSearchQuery)}`;
-    if (filterCategory === "status" && filterValue)
-      url += `&status=${filterValue}`;
-    if (filterCategory === "type" && filterValue) url += `&type=${filterValue}`;
-    if (showFavoritesOnly) url += `&favorite=true`;
-
-    if (sortBy === "name") url += `&sort=title,asc`;
-    else if (sortBy === "scoreDesc") url += `&sort=score,desc`;
-    else if (sortBy === "scoreAsc") url += `&sort=score,asc`;
-    else if (sortBy === "status")
-      url += `&sort=statusWeight,asc&sort=score,desc`;
-
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+    const response = await getAnimesAction({
+      page: pageParam,
+      search: debouncedSearchQuery,
+      status: filterCategory === "status" ? filterValue : "",
+      type: filterCategory === "type" ? filterValue : "",
+      favorite: showFavoritesOnly,
     });
 
-    if (res.status === 401 || res.status === 403) {
-      localStorage.removeItem("token");
-      router.push("/login");
-      throw new Error("Não autorizado");
-    }
-
-    if (!res.ok) throw new Error("Falha no servidor");
-
-    return res.json();
+    return response;
   };
 
   const { data, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } =
@@ -85,20 +65,21 @@ export function useAnimes() {
       },
     });
 
-  const animes = data?.pages.flatMap((page) => page.content) || [];
+  const animes: Anime[] = (data?.pages.flatMap((page) => page.content) ||
+    []) as Anime[];
 
   const toggleFavoriteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const token = localStorage.getItem("token");
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/api/animes/${id}/favorite`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Erro ao favoritar");
+    mutationFn: async ({
+      id,
+      newStatus,
+    }: {
+      id: number;
+      newStatus: boolean;
+    }) => {
+      await toggleFavoriteAction(id, newStatus);
     },
 
-    onMutate: async (id) => {
+    onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey });
       const previousData = queryClient.getQueryData(queryKey);
 
@@ -121,7 +102,7 @@ export function useAnimes() {
       );
       return { previousData };
     },
-    onError: (err, id, context) => {
+    onError: (err, variables, context) => {
       queryClient.setQueryData(queryKey, context?.previousData);
       alert(`Falha ao atualizar favorito.`);
     },
@@ -135,17 +116,11 @@ export function useAnimes() {
       id: number;
       animeAtualizado: Anime;
     }) => {
-      const token = localStorage.getItem("token");
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const res = await fetch(`${apiUrl}/api/animes/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(animeAtualizado),
-      });
-      if (!res.ok) throw new Error("Erro ao atualizar episódios");
+      await updateAnimeEpisodesAction(
+        id,
+        animeAtualizado.watchedEpisodes,
+        animeAtualizado.status,
+      );
     },
     onMutate: async ({ id, animeAtualizado }) => {
       await queryClient.cancelQueries({ queryKey });
@@ -176,21 +151,7 @@ export function useAnimes() {
 
   const saveAnimeMutation = useMutation({
     mutationFn: async (anime: Anime) => {
-      const token = localStorage.getItem("token");
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id, ...dadosParaSalvar } = anime;
-      const response = await fetch(`${apiUrl}/api/animes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(dadosParaSalvar),
-      });
-      if (response.status === 409) throw new Error("Anime já existe na lista.");
-      if (!response.ok) throw new Error("Erro ao salvar anime");
-      return response.json();
+      return await saveAnimeAction(anime);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey });
@@ -205,9 +166,11 @@ export function useAnimes() {
     },
   });
 
-  // --- FUNÇÕES EXPORTADAS ---
   const handleToggleFavorite = (id: number) => {
-    toggleFavoriteMutation.mutate(id);
+    const anime = animes.find((a) => a.id === id);
+    if (anime) {
+      toggleFavoriteMutation.mutate({ id, newStatus: !anime.favorite });
+    }
   };
 
   const handleUpdateAnimeEpisodes = (id: number) => {
