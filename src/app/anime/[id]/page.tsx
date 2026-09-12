@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import AnimeClient from "./animeClient";
-import { AnimeDetailsDTO } from "@/types/anime";
+import { getAnimeByIdAction } from "@/actions/animeActions";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -15,22 +15,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AnimePage({ params }: Props) {
   const resolvedParams = await params;
+  const animeId = Number(resolvedParams.id);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-
-  let initialData: AnimeDetailsDTO | null = null;
+  let initialData = null;
 
   try {
-    const res = await fetch(`${apiUrl}/api/animes/${resolvedParams.id}`, {
-      next: { revalidate: 3600 },
-    });
+    const anime = await getAnimeByIdAction(animeId);
 
-    if (res.ok) {
-      initialData = (await res.json()) as AnimeDetailsDTO;
+    if (anime) {
+      initialData = {
+        anime: anime,
+        globalUserCount: 1, // Valores de placeholder (depois podemos fazer actions reais para eles)
+        globalAverageScore: Number(anime.score) || 0,
+      };
     }
   } catch (error) {
-    console.error("Fetch no servidor falhou (esperado sem token):", error);
+    console.error("Falha ao buscar anime via Server Action:", error);
   }
 
-  return <AnimeClient params={resolvedParams} initialData={initialData} />;
+  return (
+    <AnimeClient params={{ id: resolvedParams.id }} initialData={initialData} />
+  );
 }

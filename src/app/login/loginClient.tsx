@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { loginAction } from "@/actions/authActions";
 
 export const metadata: Metadata = {
   title: "Entrar",
@@ -26,36 +27,13 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
-
-    if (!email || !password) {
-      setErrorMessage("Insira email e senha");
-      return;
-    }
-
     setIsLoading(true);
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
     try {
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const result = await loginAction(email, password);
 
-      if (!response.ok) {
-        throw new Error("Credenciais inválidas");
-      }
-
-      const data = await response.json();
-
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-
+      if (result.success) {
         router.push("/");
-      } else {
-        throw new Error("Token de autenticação não recebido");
       }
     } catch (error) {
       setErrorMessage("Falha no login. Verifique suas credenciais.");

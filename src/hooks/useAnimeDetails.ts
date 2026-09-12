@@ -1,7 +1,22 @@
 import { useState, useEffect } from "react";
-import { AnimeDetailsDTO } from "@/types/anime";
+import { AnimeDetailsDTO, Anime } from "@/types/anime";
 import { useRouter } from "next/navigation";
-import { Anime } from "@/types/anime";
+import {
+  updateAnimeAction,
+  saveReviewAction,
+  getCommunityReviewsAction,
+  likeReviewAction,
+} from "@/actions/animeActions";
+
+type ReviewItem = {
+  reviewId: number;
+  userId: number | null; // O leftJoin do Drizzle exige que isso possa ser null
+  userName: string | null;
+  userImage: string | null;
+  text: string | null;
+  likes: number | null;
+  isLikedByMe?: boolean;
+};
 
 export function useAnimeDetails(
   animeId: string | string[],
@@ -13,12 +28,9 @@ export function useAnimeDetails(
   const [isLoading, setIsLoading] = useState(!initialData);
   const [error, setError] = useState("");
 
-  // reviews
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
-  // modals e formulário de edição
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Anime & { tags: string[] }>>(
@@ -28,7 +40,6 @@ export function useAnimeDetails(
   const [isSaving, setIsSaving] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
-  // Utilitário de Imagem
   const getHighResImageUrl = (url?: string) => {
     if (!url) return "https://placehold.co/400x600/EDF2F7/718096?text=Sem+Capa";
     if (!url.includes("myanimelist.net")) return url;
@@ -39,72 +50,26 @@ export function useAnimeDetails(
     return url.replace(/\.(jpg|webp|png|jpeg)$/i, "l.$1");
   };
 
-  // Buscar Resenhas
   const fetchReviews = async (malIdToSearch: number) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
     try {
-      const res = await fetch(`${apiUrl}/api/animes/reviews/${malIdToSearch}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setReviews(data);
-      }
+      const result = await getCommunityReviewsAction(malIdToSearch);
+      setReviews(result as ReviewItem[]);
     } catch (error) {
       console.error("Erro ao buscar resenhas", error);
     }
   };
 
-  // Buscar Detalhes
   useEffect(() => {
-    const fetchAnimeDetails = async () => {
-      if (!animeId) {
-        setError("ID do anime não fornecido.");
-        setIsLoading(false);
-        return;
-      }
-      const token = localStorage.getItem("token");
-      if (!token) {
-        router.push("/login");
-        return;
-      }
+    if (data?.anime?.malId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchReviews(data.anime.malId);
+      setIsLoading(false);
+    } else if (!data) {
+      setError("Não foi possível carregar os detalhes.");
+      setIsLoading(false);
+    }
+  }, [data?.anime?.malId]);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      try {
-        const response = await fetch(`${apiUrl}/api/animes/${animeId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (response.status === 401 || response.status === 403) {
-          router.push("/login");
-          return;
-        }
-
-        if (!response.ok)
-          throw new Error("Não foi possível carregar os detalhes.");
-
-        const result = await response.json();
-        setData(result);
-
-        if (result?.anime?.malId) {
-          fetchReviews(result.anime.malId);
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Erro ao carregar detalhes.",
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (animeId) fetchAnimeDetails();
-  }, [animeId, router]);
-
-  // Manipulação de Edição
   const handleOpenEdit = () => {
     if (data?.anime) {
       setEditForm(data.anime);
@@ -114,8 +79,7 @@ export function useAnimeDetails(
   };
 
   const handleSaveEdit = async () => {
-    const token = localStorage.getItem("token");
-    if (!token || !data?.anime) return;
+    if (!data?.anime) return;
 
     setIsSaving(true);
     try {
@@ -125,25 +89,12 @@ export function useAnimeDetails(
         .filter((t) => t !== "");
       const payload = { ...editForm, tags: updateTags };
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      const response = await fetch(`${apiUrl}/api/animes/${animeId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const updatedAnime = await updateAnimeAction(Number(animeId), payload);
 
-      if (!response.ok)
-        throw new Error("Não foi possível salvar as alterações.");
-
-      const updatedAnime = await response.json();
-      setData((prev) => (prev ? { ...prev, anime: updatedAnime } : prev));
-
-      // Invalida os caches
+      setData((prev) =>
+        prev ? { ...prev, anime: updatedAnime as unknown as Anime } : prev,
+      );
       sessionStorage.removeItem("meusAnimesCache");
-
       setIsModalOpen(false);
     } catch (err) {
       setError(
@@ -154,7 +105,6 @@ export function useAnimeDetails(
     }
   };
 
-  // Buscar da Jikan API
   const fetchJikanData = async () => {
     if (!editForm?.malId) {
       alert("Por favor insira um ID disponível no My anime list");
@@ -184,32 +134,17 @@ export function useAnimeDetails(
     }
   };
 
-  // Resenhas e Likes
   const handleLikeReview = async (reviewId: number) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
     try {
-      const res = await fetch(`${apiUrl}/api/animes/reviews/${reviewId}/like`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const novoTotalDeLikes = await likeReviewAction(reviewId);
 
-      if (res.ok) {
-        const novoTotalDeLikes = await res.json();
-        setReviews((prev) =>
-          prev.map((rev) =>
-            rev.reviewId === reviewId
-              ? {
-                  ...rev,
-                  likes: novoTotalDeLikes,
-                  isLikedByMe: !rev.isLikedByMe,
-                }
-              : rev,
-          ),
-        );
-      }
+      setReviews((prev) =>
+        prev.map((rev) =>
+          rev.reviewId === reviewId
+            ? { ...rev, likes: novoTotalDeLikes, isLikedByMe: !rev.isLikedByMe }
+            : rev,
+        ),
+      );
     } catch (error) {
       console.error("Erro ao curtir a resenha:", error);
     }
@@ -217,25 +152,19 @@ export function useAnimeDetails(
 
   const handleSaveReview = async (newReviewText: string) => {
     if (!data?.anime) return;
-    const token = localStorage.getItem("token");
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-    const res = await fetch(`${apiUrl}/api/animes/${animeId}/review`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ reviewText: newReviewText }),
-    });
+    try {
+      await saveReviewAction(Number(animeId), newReviewText);
 
-    if (!res.ok) {
+      setData({ ...data, anime: { ...data.anime, reviewText: newReviewText } });
+
+      if (data.anime.malId) {
+        fetchReviews(data.anime.malId);
+      }
+    } catch (error) {
       alert("Não foi possível salvar a sua resenha.");
-      throw new Error("Falha ao salvar a resenha");
+      console.error(error);
     }
-
-    setData({ ...data, anime: { ...data.anime, reviewText: newReviewText } });
-    if (data.anime.malId) fetchReviews(data.anime.malId);
   };
 
   return {

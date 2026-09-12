@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { animes } from "@/db/schema";
+import { animes, users } from "@/db/schema";
 import { Anime } from "@/types/anime";
 import { and, eq, ilike } from "drizzle-orm";
 import { getSessionUser } from "@/actions/authActions";
@@ -105,4 +105,91 @@ export async function updateAnimeEpisodesAction(
     .update(animes)
     .set({ watchedEpisodes, status })
     .where(eq(animes.id, id));
+}
+
+export async function getAnimeByIdAction(id: number) {
+  const session = await getSessionUser();
+  if (!session) throw new Error("Não autorizado");
+
+  const [anime] = await db
+    .select()
+    .from(animes)
+    .where(
+      and(
+        eq(animes.id, id),
+        eq(animes.userId, session.userId), // Garante que o anime é do usuário logado
+      ),
+    )
+    .limit(1);
+
+  if (!anime) return null;
+
+  return { ...anime, favorite: anime.isFavorite } as unknown as Anime;
+}
+
+export async function updateAnimeAction(id: number, payload: unknown) {
+  const session = await getSessionUser();
+  if (!session) throw new Error("Não autorizado");
+
+  const [updatedAnime] = await db
+    .update(animes)
+    .set({
+      title: (payload as { title?: string }).title,
+      type: (payload as { type?: string }).type,
+      status: (payload as { status?: string }).status,
+      score: String((payload as { score?: number }).score),
+      episodes: (payload as { episodes?: number }).episodes,
+      watchedEpisodes: (payload as { watchedEpisodes?: number })
+        .watchedEpisodes,
+    })
+    .where(and(eq(animes.id, id), eq(animes.userId, session.userId)))
+    .returning();
+
+  return { ...updatedAnime, favorite: updatedAnime.isFavorite };
+}
+
+export async function saveReviewAction(id: number, reviewText: string) {
+  const session = await getSessionUser();
+  if (!session) throw new Error("Não autorizado");
+
+  await db
+    .update(animes)
+    .set({ comments: reviewText })
+    .where(and(eq(animes.id, id), eq(animes.userId, session.userId)));
+}
+
+export async function getCommunityReviewsAction(malId: number) {
+  const session = await getSessionUser();
+  if (!session) throw new Error("Não autorizado");
+
+  const reviewsDb = await db
+    .select({
+      reviewId: animes.id,
+      userId: users.id,
+      userName: users.name,
+      userImage: users.profileImageUrl,
+      text: animes.comments,
+      likes: animes.reviewLikes,
+    })
+    .from(animes)
+    .leftJoin(users, eq(animes.userId, users.id))
+    .where(and(eq(animes.malId, malId)));
+  return reviewsDb.filter((r) => r.text && r.text.trim() !== "");
+}
+
+export async function likeReviewAction(reviewId: number) {
+  const session = await getSessionUser();
+  if (!session) throw new Error("Não autorizado");
+
+  const [anime] = await db
+    .select({ likes: animes.reviewLikes })
+    .from(animes)
+    .where(eq(animes.id, reviewId));
+  const newLikes = (anime.likes || 0) + 1;
+
+  await db
+    .update(animes)
+    .set({ reviewLikes: newLikes })
+    .where(eq(animes.id, reviewId));
+  return newLikes;
 }

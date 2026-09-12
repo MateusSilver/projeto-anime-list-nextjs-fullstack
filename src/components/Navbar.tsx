@@ -5,28 +5,27 @@ import { usePathname, useRouter } from "next/navigation";
 import { LogOutIcon, Users, ListVideo } from "lucide-react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { getSessionUser, logoutAction } from "@/actions/authActions";
 
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userImage, setUserImage] = useState<string | null>(null);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [user, setUser] = useState<{
+    name: string;
+    profileImageUrl?: string;
+  } | null>(null);
 
+  const [isScrolled, setIsScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  const isDetailsPage = pathname.startsWith("/anime/");
+  const isDetailsPage = pathname?.startsWith("/anime/") || false;
 
   const closeMenu = () => setIsOpen(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 100) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
+      setIsScrolled(window.scrollY > 100);
     };
 
     window.addEventListener("scroll", handleScroll);
@@ -36,42 +35,19 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    const verifySession = async () => {
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        setIsLoggedIn(false);
-        setUserImage(null);
-        return;
-      }
-
-      setIsLoggedIn(true);
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      try {
-        const res = await fetch(`${apiUrl}/api/users/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setUserImage(data.profileImageUrl);
-        } else {
-          setIsLoggedIn(false);
-          localStorage.removeItem("token");
-        }
-      } catch (error) {
-        console.error("Erro ao carregar avatar do Navbar", error);
-      }
+    const fetchUser = async () => {
+      const session = await getSessionUser();
+      setUser(
+        session as unknown as { name: string; profileImageUrl?: string } | null,
+      );
     };
-
-    verifySession();
+    fetchUser();
   }, [pathname]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
+  const handleLogout = async () => {
+    await logoutAction();
     sessionStorage.removeItem("meusAnimesCache");
-    setIsLoggedIn(false);
+    setUser(null);
     closeMenu();
     router.push("/login");
   };
@@ -91,7 +67,6 @@ export default function Navbar() {
       }}
     >
       <div className="container py-1">
-        {/* Logo */}
         <Link
           href="/"
           className="navbar-brand fw-bold d-flex align-items-center gap-2"
@@ -100,7 +75,6 @@ export default function Navbar() {
           <span className="text-primary fs-4">My Anime List Pro</span>
         </Link>
 
-        {/* Botão Hambúrguer para Mobile */}
         <button
           className="navbar-toggler border-0 shadow-none focus-ring focus-ring-danger"
           type="button"
@@ -111,7 +85,6 @@ export default function Navbar() {
           <span className="navbar-toggler-icon"></span>
         </button>
 
-        {/* Links Centrais e Perfil */}
         <div
           className={`collapse navbar-collapse ${isOpen ? "show" : ""}`}
           id="navbarMenu"
@@ -121,7 +94,9 @@ export default function Navbar() {
               <Link
                 href="/"
                 onClick={closeMenu}
-                className={`nav-link fw-medium d-flex align-items-center gap-1 ${pathname === "/" ? "text-primary active" : ""}`}
+                className={`nav-link fw-medium d-flex align-items-center gap-1 ${
+                  pathname === "/" ? "text-primary active" : ""
+                }`}
               >
                 <ListVideo size={18} /> Meu Acervo
               </Link>
@@ -130,19 +105,20 @@ export default function Navbar() {
               <Link
                 href="/users"
                 onClick={closeMenu}
-                className={`nav-link fw-medium d-flex align-items-center gap-1 ${pathname.startsWith("/users") ? "text-primary active" : ""}`}
+                className={`nav-link fw-medium d-flex align-items-center gap-1 ${
+                  pathname?.startsWith("/users") ? "text-primary active" : ""
+                }`}
               >
                 <Users size={18} /> Comunidade
               </Link>
             </li>
           </ul>
 
-          {/* Área Direita (Perfil ) */}
           <div
-            className="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 mt-3 mt-md-0 pt-3 pt-md-0 "
+            className="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 mt-3 mt-md-0 pt-3 pt-md-0"
             style={{ borderColor: "rgba(0,0,0,0.1)" }}
           >
-            {isLoggedIn ? (
+            {user ? (
               <>
                 <Link
                   href="/profile"
@@ -155,20 +131,17 @@ export default function Navbar() {
                   >
                     <Image
                       src={
-                        userImage ||
+                        user.profileImageUrl ||
                         "https://placehold.co/150x150/png?text=User"
                       }
                       alt="Avatar"
                       className="rounded-circle border-primary"
-                      style={{
-                        objectFit: "cover",
-                      }}
+                      style={{ objectFit: "cover" }}
                       width={35}
                       height={35}
                     />
-                    {/* Texto visível apenas no mobile para guiar o utilizador */}
                     <span className="d-md-none fw-semibold text-body">
-                      Meu Perfil
+                      Meu Perfil ({user.name})
                     </span>
                   </div>
                 </Link>
@@ -176,8 +149,7 @@ export default function Navbar() {
                   onClick={handleLogout}
                   className="btn btn-sm btn-outline-danger fw-semibold rounded-pill px-3 d-flex align-items-center gap-1"
                 >
-                  <LogOutIcon size={16} />{" "}
-                  {/* Removida a classe d-none para garantir que o texto "Sair" aparece no mobile também */}
+                  <LogOutIcon size={16} />
                   <span>Sair</span>
                 </button>
               </>

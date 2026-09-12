@@ -28,7 +28,11 @@ export async function loginAction(email: string, passwordDigitada: string) {
     throw new Error("Credenciais inválidas");
   }
 
-  const token = await new SignJWT({ userId: user.id, name: user.name })
+  const token = await new SignJWT({
+    userId: user.id,
+    name: user.name,
+    profileImageUrl: user.profileImageUrl,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
@@ -59,7 +63,11 @@ export async function getSessionUser() {
 
   try {
     const { payload } = await jwtVerify(token, SECRET_KEY);
-    return payload as { userId: number; name: string };
+    return payload as {
+      userId: number;
+      name: string;
+      profileImageUrl?: string;
+    };
   } catch (error) {
     return null;
   }
