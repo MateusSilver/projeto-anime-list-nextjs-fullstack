@@ -2,7 +2,9 @@
 
 import { db } from "@/db";
 import { animes } from "@/db/schema";
+import { Anime } from "@/types/anime";
 import { and, eq, ilike } from "drizzle-orm";
+import { getSessionUser } from "@/actions/authActions";
 
 export async function getAnimesAction({
   page = 0,
@@ -11,10 +13,13 @@ export async function getAnimesAction({
   type = "",
   favorite = false,
 }) {
-  const pageSize = 20;
+  const session = await getSessionUser();
+  if (!session) throw new Error("Usuário não autenticado");
 
+  const pageSize = 20;
   const filters = [];
 
+  filters.push(eq(animes.userId, session.userId));
   if (search) filters.push(ilike(animes.title, `%${search}%`));
   if (status) filters.push(eq(animes.status, status));
   if (type) filters.push(eq(animes.type, type));
@@ -36,13 +41,20 @@ export async function getAnimesAction({
   }));
 
   return {
-    content: content as any[],
+    content: content as unknown as Anime[],
     last: !hasMore,
     number: page,
   };
 }
 
-export async function saveAnimeAction(animeData: any) {
+export async function saveAnimeAction(animeData: Anime) {
+  const session = await getSessionUser();
+  if (!session) throw new Error("Usuário não autenticado");
+
+  if (!animeData.malId) {
+    throw new Error("Anime malId é requesito.");
+  }
+
   const existence = await db
     .select()
     .from(animes)
@@ -55,22 +67,26 @@ export async function saveAnimeAction(animeData: any) {
   const [novoAnime] = await db
     .insert(animes)
     .values({
+      userId: session.userId,
       malId: animeData.malId,
-      title: animeData.title,
-      type: animeData.type,
+      title: animeData.title || "",
+      type: animeData.type || "TV",
       status: animeData.status || "Plan to Watch",
-      score: animeData.score || "0",
-      episodes: animeData.episodes || 0,
+      score: String(animeData.score || "0"),
+      episodes: animeData.episodes ?? 0,
       watchedEpisodes: animeData.watchedEpisodes || 0,
-      imageUrl: animeData.imageUrl,
-      isFavorite: animeData.isFavorite || false,
+      imageUrl: animeData.imageUrl || "",
+      isFavorite: animeData.favorite || false,
     })
     .returning();
 
-  return { ...novoAnime, favorite: animeData.isFavorite };
+  return { ...novoAnime, favorite: animeData.favorite };
 }
 
 export async function toggleFavoriteAction(id: number, newStatus: boolean) {
+  const session = await getSessionUser();
+  if (!session) throw new Error("Usuário não autenticado");
+
   await db
     .update(animes)
     .set({ isFavorite: newStatus })
@@ -82,6 +98,9 @@ export async function updateAnimeEpisodesAction(
   watchedEpisodes: number,
   status: string,
 ) {
+  const session = await getSessionUser();
+  if (!session) throw new Error("Usuário não autenticado");
+
   await db
     .update(animes)
     .set({ watchedEpisodes, status })
