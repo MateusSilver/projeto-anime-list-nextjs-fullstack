@@ -72,3 +72,54 @@ export async function getSessionUser() {
     return null;
   }
 }
+
+export async function registerAction(formData: {
+  name: string;
+  email: string;
+  password: string;
+  profileImageUrl?: string;
+}) {
+  const { name, email, password, profileImageUrl } = formData;
+
+  const emailExistente = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  if (emailExistente.length > 0) {
+    throw new Error("Email já está em uso.");
+  }
+  const hashPassword = await bcrypt.hash(password, 10);
+
+  const [newUser] = await db
+    .insert(users)
+    .values({
+      name,
+      email,
+      password: hashPassword,
+      profileImageUrl:
+        profileImageUrl || "https://placehold.co/150x150/png?text=User",
+    })
+    .returning();
+
+  const token = await new SignJWT({
+    userId: newUser.id,
+    name: newUser.name,
+    profileImageUrl: newUser.profileImageUrl,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .sign(SECRET_KEY);
+
+  const cookieStore = await cookies();
+  cookieStore.set("auth_token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 7,
+    path: "/",
+  });
+  return { sucess: true };
+}

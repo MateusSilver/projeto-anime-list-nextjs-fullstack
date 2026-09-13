@@ -4,17 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import type { Metadata } from "next";
+import { registerAction } from "@/actions/authActions";
 
-export const metadata: Metadata = {
-  title: "Criar Conta",
-  robots: {
-    index: false,
-    follow: true,
-  },
-};
-
-export default function RegisterPage() {
+export default function RegisterClient() {
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -30,39 +22,21 @@ export default function RegisterPage() {
     setIsLoading(true);
     setErrorMsg("");
 
-    const newUser = {
-      name,
-      email,
-      password,
-      profileImageUrl: "https://placehold.co/150x150?text=User",
-    };
-
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
     try {
-      const res = await fetch(`${apiUrl}/api/auth/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newUser),
+      const result = await registerAction({
+        name,
+        email,
+        password,
+        profileImageUrl: "https://placehold.co/150x150?text=User",
       });
 
-      if (res.status === 409) {
-        throw new Error("Este e-mail já está registado!");
+      if (result.sucess) {
+        router.push("/");
       }
-
-      if (!res.ok) {
-        throw new Error("Ocorreu um erro ao criar a conta.");
-      }
-
-      alert("Conta criada com sucesso! Faça login para começar.");
-      router.push("/login");
-    } catch (error) {
-      if (error instanceof Error) {
-        setErrorMsg(error.message);
-      } else {
-        setErrorMsg("Erro de conexão com o servidor.");
-      }
+    } catch (error: unknown) {
+      setErrorMsg(
+        (error as Error).message || "Ocorreu um erro ao criar a conta.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -83,7 +57,6 @@ export default function RegisterPage() {
         )}
 
         <form onSubmit={handleRegister}>
-          {/* Campo Nome */}
           <div className="mb-3">
             <label
               htmlFor="name"
@@ -102,7 +75,6 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Campo E-mail */}
           <div className="mb-3">
             <label htmlFor="email" className="form-label fw-semibold small">
               E-mail
@@ -118,7 +90,6 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Campo Senha com o Olho */}
           <div className="mb-3">
             <label
               htmlFor="password"
@@ -150,7 +121,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Botão de Registo */}
           <button
             type="submit"
             className="btn btn-primary bg-primary text-light w-100 border-primary fw-semibold"
@@ -166,7 +136,6 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        {/* Link para voltar ao Login */}
         <div className="text-center mt-4 pt-3 border-top border-secondary-subtle">
           <p className="text-muted small m-0">
             Já tem uma conta?{" "}

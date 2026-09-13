@@ -152,6 +152,7 @@ export default function AnimeDetailsPage({ params, initialData }: Props) {
           style={{
             objectFit: "cover",
             filter: "blur(6px)",
+            width: "100%",
             opacity: 0.4,
             transform: "scale(1.1)", // O scale evita que o blur crie bordas brancas nas laterais
           }}
