@@ -53,13 +53,11 @@ export default function CommunityReviewsSection({
                             review.userImage ||
                             "https://placehold.co/50x50?text=U"
                           }
-                          alt={review.userName}
-                          className="rounded-circle border-secondary-subtle"
-                          style={{
-                            width: "45px",
-                            height: "45px",
-                            objectFit: "cover",
-                          }}
+                          alt={review.userName || "Usuário"}
+                          width={50}
+                          height={50}
+                          className="rounded-circle"
+                          style={{ objectFit: "cover" }}
                         />
                         <div>
                           <h6 className="mb-0 fw-bold">{review.userName}</h6>
